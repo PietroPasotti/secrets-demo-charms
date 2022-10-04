@@ -1,0 +1,2 @@
+do-secret-rotate:
+  description: publish a new secret revision.

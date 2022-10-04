@@ -1,0 +1,2 @@
+do-secret-upgrade:
+  description: fetch the latest secret revision if one is available.

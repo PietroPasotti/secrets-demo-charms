@@ -1,0 +1,15 @@
+# Copyright 2022 pietro
+# See LICENSE file for licensing details.
+
+# For a complete list of supported options, see:
+# https://juju.is/docs/sdk/metadata-reference
+name: holder
+display-name: holder
+description: |
+  secret holder demo charm
+summary: |
+  secret holder demo charm
+
+requires:
+  secret_id:
+    interface: secret-id-demo
