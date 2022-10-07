@@ -7,7 +7,7 @@ from datetime import datetime
 
 from ops.charm import CharmBase, RelationChangedEvent, SecretRotateEvent, SecretExpiredEvent, SecretRemoveEvent
 from ops.main import main
-from ops.model import ActiveStatus, Secret, BlockedStatus, WaitingStatus
+from ops.model import ActiveStatus, _Secret, BlockedStatus, WaitingStatus
 
 logger = logging.getLogger(__name__)
 
@@ -39,24 +39,25 @@ class OwnerCharm(CharmBase):
             'secret is expired!'
             'run do-secret-rotate to publish a new revision.')
 
-    def _create_secret(self) -> Secret:
+    def _create_secret(self) -> _Secret:
         secret = self.unit.add_secret(
             {'username': 'admin',
              'password': 'admin'},
             expire=datetime.fromisoformat(self.config['expire']),
             rotate=self.config['rotate'],
+            label='this-label'
         )
-        secret.set_label('my-label')
         return secret
 
-    def _get_secret(self) -> Secret:
-        return self.model.get_secret('my-label')
+    @property
+    def secret(self) -> _Secret:
+        return self.model.get_secret(label='this-label')
 
     def _setup(self, _):
         self.unit.status = WaitingStatus('waiting for secret_id relation')
 
     @staticmethod
-    def _new_revision(secret: Secret):
+    def _new_revision(secret: _Secret):
         username = f"username-rev-{secret.revision + 1}"
         password = f"password-rev-{secret.revision + 1}"
         return {
@@ -65,19 +66,19 @@ class OwnerCharm(CharmBase):
         }
 
     def _on_cleanup_old_revisions(self, _):
-        self._get_secret().remove()
+        self.secret.remove()
 
     def _on_do_secret_rotate_action(self, _):
-        secret = self._get_secret()
+        secret = self.secret
         revision = self._new_revision(secret)
         secret.set(revision)
 
-        new_secret = self._get_secret()
+        new_secret = self.secret
         self.unit.status = ActiveStatus(
             f'rotated secret: revision {secret.revision} --> {new_secret.revision} available')
 
     def _remove_secret(self, event: RelationChangedEvent):
-        secret = self._get_secret()
+        secret = self.secret
         secret.revoke(event.relation)
         secret.remove()
 

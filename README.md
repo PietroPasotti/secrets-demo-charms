@@ -42,7 +42,11 @@ The owner will now receive a secret-remove event informing it that an outdated r
 
 # Testing with bleeding-edge locally-installed ops
 
-If you are using this bundle to test a bleeding-edge ops release (not released yet), you might want to use the following command to inject and keep in sync your local ops source to the live units:
+If you are using this bundle to test a bleeding-edge ops release (not released yet), you might want to:
+
+after packing the charms, manually inject your local ops source into `charm/venv/ops`.
+
+use the following command to inject and keep in sync your local ops source to the live units:
 
 ```bash
  ljhack sync ~/canonical/operator/ops owner/0 --remote-root  /var/lib/juju/agents/unit-owner-0/charm/venv/ops

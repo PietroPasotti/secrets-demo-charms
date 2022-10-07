@@ -6,9 +6,10 @@
 import logging
 from typing import Optional
 
+import ops.model
 from ops.charm import CharmBase, RelationChangedEvent
 from ops.main import main
-from ops.model import ActiveStatus, Secret, InvalidSecretIDError, BlockedStatus, WaitingStatus
+from ops.model import ActiveStatus, _Secret, InvalidSecretIDError, BlockedStatus, WaitingStatus
 
 logger = logging.getLogger(__name__)
 
@@ -18,17 +19,25 @@ class HolderCharm(CharmBase):
         super().__init__(*args)
         self.framework.observe(self.on.install, self._on_reset)
         self.framework.observe(self.on.do_secret_upgrade_action, self._on_do_secret_upgrade_action)
-        self.framework.observe(self.on.secret_id_relation_changed, self._on_secret_change)
+        self.framework.observe(self.on.secret_id_relation_changed, self._on_secret_provided)
         self.framework.observe(self.on.secret_id_relation_broken, self._on_reset)
         self.framework.observe(self.on.secret_changed, self._on_secret_change)
         self.framework.observe(self.on.update_status, self._on_update_status)
 
-    def _get_secret(self) -> Optional[Secret]:
-        try:
-            return self.model.get_secret('my-label')
-        except InvalidSecretIDError as e:
-            logger.error(e)
-            return
+    def _has_secret(self):
+        return len(self.model.relations.get('secret_id', ())) == 1
+
+    def _obtain_secret(self) -> Optional[_Secret]:
+        if not self._has_secret():
+            return None
+        relation = self.model.relations['secret_id'][0]
+        secret_id = relation.data[relation.app]['secret-id']
+        return self.model.get_secret(secret_id=secret_id, label='my-secret')
+
+    @property
+    def secret(self) -> _Secret:
+        """only works AFTER self._obtain_secret has been called"""
+        return self.model.get_secret(label='my-secret')
 
     def _on_reset(self, _):
         self.unit.status = WaitingStatus('waiting for secret_id relation')
@@ -37,25 +46,20 @@ class HolderCharm(CharmBase):
         self._on_update_status(update=True)
 
     def _on_secret_change(self, event: RelationChangedEvent):
-        secret = self._get_secret()
-        if not secret:
-            try:
-                sec_id = event.relation.data[event.app]['secret-id']
-            except KeyError:
-                self.unit.status = BlockedStatus('secret-id not provided by relation')
+        try:
+            secret = self._obtain_secret()
+            if secret is None:
+                self.unit.status = BlockedStatus(f'no secret relation could be found')
                 return
 
-            try:
-                secret = self.model.get_secret(sec_id)
-            except InvalidSecretIDError:
-                self.unit.status = BlockedStatus(f'relation-provided secret-id {sec_id} is invalid')
-                return
+        except ops.model.SecretsError:
+            self.unit.status = BlockedStatus(f'relation-provided secret-id is invalid')
+            return
 
-            secret.set_label('my-label')
-            self._on_update_status()
+        self._on_update_status()
 
     def _on_update_status(self, _=None, update: bool = False):
-        secret = self._get_secret()
+        secret = self._obtain_secret()
         if not secret:
             self.unit.status = WaitingStatus('waiting for secret_id relation')
             return
