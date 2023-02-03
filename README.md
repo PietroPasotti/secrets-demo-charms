@@ -49,6 +49,6 @@ after packing the charms, manually inject your local ops source into `charm/venv
 use the following command to inject and keep in sync your local ops source to the live units:
 
 ```bash
- ljhack sync ~/canonical/operator/ops owner/0 --remote-root  /var/lib/juju/agents/unit-owner-0/charm/venv/ops
- ljhack sync ~/canonical/operator/ops holder/0 --remote-root  /var/lib/juju/agents/unit-holder-0/charm/venv/ops 
+ jhack sync ~/canonical/operator/ops owner/0 --remote-root  /var/lib/juju/agents/unit-owner-0/charm/venv/ops
+ jhack sync ~/canonical/operator/ops holder/0 --remote-root  /var/lib/juju/agents/unit-holder-0/charm/venv/ops 
  ```

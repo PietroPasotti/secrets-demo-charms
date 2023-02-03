@@ -9,17 +9,17 @@ from typing import Optional
 import ops.model
 from ops.charm import CharmBase, RelationChangedEvent
 from ops.main import main
-from ops.model import ActiveStatus, _Secret, InvalidSecretIDError, BlockedStatus, WaitingStatus
+from ops.model import ActiveStatus, Secret, BlockedStatus, WaitingStatus
 
 logger = logging.getLogger(__name__)
 
 
-class HolderCharm(CharmBase):
+class ConsumerCharm(CharmBase):
     def __init__(self, *args):
         super().__init__(*args)
         self.framework.observe(self.on.install, self._on_reset)
         self.framework.observe(self.on.do_secret_upgrade_action, self._on_do_secret_upgrade_action)
-        self.framework.observe(self.on.secret_id_relation_changed, self._on_secret_provided)
+        self.framework.observe(self.on.secret_id_relation_changed, self._on_update_status)
         self.framework.observe(self.on.secret_id_relation_broken, self._on_reset)
         self.framework.observe(self.on.secret_changed, self._on_secret_change)
         self.framework.observe(self.on.update_status, self._on_update_status)
@@ -27,15 +27,15 @@ class HolderCharm(CharmBase):
     def _has_secret(self):
         return len(self.model.relations.get('secret_id', ())) == 1
 
-    def _obtain_secret(self) -> Optional[_Secret]:
+    def _obtain_secret(self) -> Optional[Secret]:
         if not self._has_secret():
             return None
         relation = self.model.relations['secret_id'][0]
         secret_id = relation.data[relation.app]['secret-id']
-        return self.model.get_secret(secret_id=secret_id, label='my-secret')
+        return self.model.get_secret(id=secret_id, label='my-secret')
 
     @property
-    def secret(self) -> _Secret:
+    def secret(self) -> Secret:
         """only works AFTER self._obtain_secret has been called"""
         return self.model.get_secret(label='my-secret')
 
@@ -52,7 +52,7 @@ class HolderCharm(CharmBase):
                 self.unit.status = BlockedStatus(f'no secret relation could be found')
                 return
 
-        except ops.model.SecretsError:
+        except ops.model.SecretNotFoundError:
             self.unit.status = BlockedStatus(f'relation-provided secret-id is invalid')
             return
 
@@ -64,17 +64,20 @@ class HolderCharm(CharmBase):
             self.unit.status = WaitingStatus('waiting for secret_id relation')
             return
 
-        username = secret.get('username', update=update)
-        password = secret.get('password', update=update)
+        current_contents = secret.get_content(refresh=update)
+        current_username = current_contents['username']
+        current_password = current_contents['password']
 
-        username_peek = secret.get('username', peek=True)
-        password_peek = secret.get('password', peek=True)
+        peek_contents = secret.peek_content()
+        peek_username = peek_contents['username']
+        peek_password = peek_contents['password']
 
-        if username_peek != username or password_peek != password:
-            self.unit.status = ActiveStatus(f'{username}/{password} (new revision available!)')
+        if peek_username != current_username or peek_password != current_password:
+            self.unit.status = ActiveStatus(f'{peek_username}/{peek_password} '
+                                            f'(new revision available!)')
         else:
-            self.unit.status = ActiveStatus(f'{username}/{password}')
+            self.unit.status = ActiveStatus(f'{current_username}/{current_password}')
 
 
 if __name__ == "__main__":
-    main(HolderCharm)
+    main(ConsumerCharm)
