@@ -4,7 +4,7 @@
 
 
 import logging
-from typing import Optional
+from typing import Optional, Tuple
 
 import ops.model
 from ops.charm import CharmBase, RelationChangedEvent
@@ -27,17 +27,13 @@ class ConsumerCharm(CharmBase):
     def _has_secret(self):
         return len(self.model.relations.get('secret_id', ())) == 1
 
-    def _obtain_secret(self) -> Optional[Secret]:
+    def _obtain_secret(self) -> Tuple[Optional[str], Optional[str]]:
         if not self._has_secret():
-            return None
+            return None, None
         relation = self.model.relations['secret_id'][0]
-        secret_id = relation.data[relation.app]['secret-id']
-        return self.model.get_secret(id=secret_id, label='my-secret')
-
-    @property
-    def secret(self) -> Secret:
-        """only works AFTER self._obtain_secret has been called"""
-        return self.model.get_secret(label='my-secret')
+        username = relation.data[relation.app]['username']
+        password = relation.data[relation.app]['password']
+        return username, password
 
     def _on_reset(self, _):
         self.unit.status = WaitingStatus('waiting for secret_id relation')
@@ -59,24 +55,12 @@ class ConsumerCharm(CharmBase):
         self._on_update_status()
 
     def _on_update_status(self, _=None, update: bool = False):
-        secret = self._obtain_secret()
-        if not secret:
+        username, password = self._obtain_secret()
+        if not username:
             self.unit.status = WaitingStatus('waiting for secret_id relation')
             return
 
-        current_contents = secret.get_content(refresh=update)
-        current_username = current_contents['username']
-        current_password = current_contents['password']
-
-        peek_contents = secret.peek_content()
-        peek_username = peek_contents['username']
-        peek_password = peek_contents['password']
-
-        if peek_username != current_username or peek_password != current_password:
-            self.unit.status = ActiveStatus(f'{peek_username}/{peek_password} '
-                                            f'(new revision available!)')
-        else:
-            self.unit.status = ActiveStatus(f'{current_username}/{current_password}')
+        self.unit.status = ActiveStatus(f'{username}/{password}')
 
 
 if __name__ == "__main__":
