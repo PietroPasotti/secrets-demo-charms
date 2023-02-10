@@ -9,7 +9,7 @@ from typing import Optional, Tuple
 import ops.model
 from ops.charm import CharmBase, RelationChangedEvent
 from ops.main import main
-from ops.model import ActiveStatus, Secret, BlockedStatus, WaitingStatus
+from ops.model import ActiveStatus, BlockedStatus, WaitingStatus
 
 logger = logging.getLogger(__name__)
 

@@ -4,11 +4,10 @@
 
 import logging
 import random
-from datetime import datetime
 
-from ops.charm import CharmBase, RelationChangedEvent, SecretRotateEvent, SecretExpiredEvent, SecretRemoveEvent
+from ops.charm import CharmBase
 from ops.main import main
-from ops.model import ActiveStatus, BlockedStatus, WaitingStatus, SecretRotate, Secret, Relation
+from ops.model import ActiveStatus, WaitingStatus, Relation
 
 logger = logging.getLogger(__name__)
 
